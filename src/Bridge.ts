@@ -1,6 +1,6 @@
 import { AdminAccountData } from "./AdminRoomCommandHandler";
 import { AdminRoom, BRIDGE_ROOM_TYPE, LEGACY_BRIDGE_ROOM_TYPE } from "./AdminRoom";
-import { Appservice, IAppserviceRegistration, RichRepliesPreprocessor, IRichReplyMetadata, StateEvent, MatrixClient, EventKind, PowerLevelsEvent } from "matrix-bot-sdk";
+import { Appservice, IAppserviceRegistration, RichRepliesPreprocessor, IRichReplyMetadata, StateEvent, MatrixClient, EventKind, PowerLevelsEvent, EncryptionAlgorithm } from "matrix-bot-sdk";
 import { BridgeConfig, BridgePermissionLevel, GitLabInstance } from "./Config/Config";
 import { BridgeWidgetApi } from "./Widgets/BridgeWidgetApi";
 import { CommentProcessor } from "./CommentProcessor";
@@ -1147,11 +1147,20 @@ export class Bridge {
         if (existingRoom) {
             return existingRoom;
         }
+        let encryptionArgs = {};
+        if (this.config.encryption) {
+            encryptionArgs = {
+                initial_state: [
+                    { type: "m.room.encryption", state_key: "", content: { algorithm: EncryptionAlgorithm.MegolmV1AesSha2 } },
+                ],
+            };
+        }
         // Otherwise, we need to create a room.
         const roomId = await this.as.botClient.createRoom({
             invite: [userId],
             is_direct: true,
             preset: "trusted_private_chat",
+            ...encryptionArgs,
         });
         return this.setUpAdminRoom(roomId, {admin_user: userId}, NotifFilter.getDefaultContent());
     }
