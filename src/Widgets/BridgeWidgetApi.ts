@@ -133,7 +133,7 @@ export class BridgeWidgetApi {
             if (!req.body || typeof req.body !== "object") {
                 throw new ApiError("A JSON body must be provided", ErrCode.BadValue);
             }
-            const connection = await this.connMan.provisionConnection(req.params.roomId as string, req.userId, req.params.type as string, req.body as Record<string, unknown>);
+            const connection = await this.connMan.provisionConnection(this.intent, req.params.roomId as string, req.userId, req.params.type as string, req.body as Record<string, unknown>);
             if (!connection.getProvisionerDetails) {
                 throw new Error('Connection supported provisioning but not getProvisionerDetails');
             }

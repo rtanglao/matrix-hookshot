@@ -5,7 +5,9 @@ import { CommandError } from "./errors";
 import { MatrixMessageContent } from "./MatrixEvent";
 import { BridgePermissionLevel } from "./Config/Config";
 import { PermissionCheckFn } from "./Connections";
+import LogWrapper from "./LogWrapper";
 
+const log = new LogWrapper("BotCommand");
 const md = new markdown();
 
 export const botCommandSymbol = Symbol("botCommandMetadata");
@@ -110,9 +112,14 @@ interface CommandResultErrorHuman {
 }
 
 export async function handleCommand(
-    userId: string, command: string, botCommands: BotCommands, obj: unknown, permissionCheckFn: PermissionCheckFn,
-    defaultPermissionService?: string, prefix?: string)
-: Promise<CommandResultNotHandled|CommandResultSuccess|CommandResultErrorUnknown|CommandResultErrorHuman> {
+    userId: string,
+    command: string,
+    botCommands: BotCommands,
+    obj: unknown,
+    permissionCheckFn: PermissionCheckFn,
+    defaultPermissionService?: string,
+    prefix?: string,
+): Promise<CommandResultNotHandled|CommandResultSuccess|CommandResultErrorUnknown|CommandResultErrorHuman> {
     if (prefix) {
         if (!command.startsWith(prefix)) {
             return {handled: false};
@@ -122,9 +129,9 @@ export async function handleCommand(
     const parts = stringArgv(command);
     for (let i = parts.length; i > 0; i--) {
         const prefix = parts.slice(0, i).join(" ").toLowerCase();
-        // We have a match!
         const command = botCommands[prefix];
         if (command) {
+            // We have a match!
             const permissionService = command.permissionService || defaultPermissionService;
             if (permissionService && !permissionCheckFn(permissionService, command.permissionLevel || BridgePermissionLevel.commands)) {
                 return {handled: true, humanError: "You do not have permission to use this command."};

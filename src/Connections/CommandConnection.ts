@@ -39,8 +39,13 @@ export abstract class CommandConnection<StateType extends IConnectionState = ICo
 
     public async onMessageEvent(ev: MatrixEvent<MatrixMessageContent>, checkPermission: PermissionCheckFn) {
         const commandResult = await handleCommand(
-            ev.sender, ev.content.body, this.botCommands, this,checkPermission,
-            this.serviceName, this.commandPrefix
+            ev.sender,
+            ev.content.body,
+            this.botCommands,
+            this,
+            checkPermission,
+            this.serviceName,
+            this.commandPrefix,
         );
         if (commandResult.handled !== true) {
             // Not for us.

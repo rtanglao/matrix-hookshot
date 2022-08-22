@@ -45,7 +45,7 @@ const MRRCOMMENT_DEBOUNCE_MS = 5000;
 export type GitLabRepoResponseItem = GetConnectionsResponseItem<GitLabRepoConnectionState>;
 
 
-type AllowedEventsNames = 
+type AllowedEventsNames =
     "merge_request.open" |
     "merge_request.close" |
     "merge_request.merge" |
@@ -53,7 +53,7 @@ type AllowedEventsNames =
     "merge_request.review.comments" |
     `merge_request.${string}` |
     "merge_request" |
-    "tag_push" | 
+    "tag_push" |
     "push" |
     "wiki" |
     `wiki.${string}` |
@@ -74,7 +74,7 @@ const AllowedEvents: AllowedEventsNames[] = [
     "release.created",
 ];
 
-const ConnectionStateSchema = {
+const ConnectionStateSchema: JSONSchemaType<GitLabRepoConnectionState> = {
     type: "object",
     properties: {
         priority: {
@@ -116,7 +116,7 @@ const ConnectionStateSchema = {
       "path"
     ],
     additionalProperties: true
-} as JSONSchemaType<GitLabRepoConnectionState>;
+};
 
 export interface GitLabTargetFilter {
     instance?: string;
@@ -137,7 +137,7 @@ export class GitLabRepoConnection extends CommandConnection<GitLabRepoConnection
         GitLabRepoConnection.CanonicalEventType,
         GitLabRepoConnection.LegacyCanonicalEventType,
     ];
-    
+
     static botCommands: BotCommands;
     static helpMessage: (cmdPrefix?: string | undefined) => MatrixMessageContent;
     static ServiceCategory = "gitlab";
@@ -260,7 +260,7 @@ export class GitLabRepoConnection extends CommandConnection<GitLabRepoConnection
         if (!client) {
             throw new ApiError('Instance is not known or you do not have access to it.', ErrCode.NotFound);
         }
-        const after = filters.after === undefined ? undefined : parseInt(filters.after, 10); 
+        const after = filters.after === undefined ? undefined : parseInt(filters.after, 10);
         const allProjects = await client.projects.list(AccessLevel.Developer, filters.parent, after, filters.search);
         return allProjects.map(p => ({
             state: {
@@ -472,7 +472,7 @@ export class GitLabRepoConnection extends CommandConnection<GitLabRepoConnection
 
         const tooManyCommits = event.total_commits_count > PUSH_MAX_COMMITS;
         const displayedCommits = tooManyCommits ? 1 : Math.min(event.total_commits_count, PUSH_MAX_COMMITS);
-        
+
         // Take the top 5 commits. The array is ordered in reverse.
         const commits = event.commits.reverse().slice(0,displayedCommits).map(commit => {
             return `[\`${commit.id.slice(0,8)}\`](${event.project.homepage}/-/commit/${commit.id}) ${commit.title}${shouldName ? ` by ${commit.author.name}` : ""}`;
@@ -497,7 +497,7 @@ export class GitLabRepoConnection extends CommandConnection<GitLabRepoConnection
             format: "org.matrix.custom.html",
         });
     }
-    
+
     public async onWikiPageEvent(data: IGitLabWebhookWikiPageEvent) {
         const attributes = data.object_attributes;
         log.info(`onWikiPageEvent ${this.roomId} ${this.instance}/${this.path}`);

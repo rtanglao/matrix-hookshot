@@ -7,18 +7,20 @@ export function getAppservice(config: BridgeConfig, registration: IAppserviceReg
         homeserverUrl: config.bridge.url,
         port: config.bridge.port,
         bindAddress: config.bridge.bindAddress,
-        registration: {
-            ...registration,
-            namespaces: {
-                // Support multiple users
-                users: [{
-                    regex: '(' + registration.namespaces.users.map((r) => r.regex).join(')|(') + ')',
-                    exclusive: true,
-                }],
-                aliases: registration.namespaces.aliases,
-                rooms: registration.namespaces.rooms,
-            }
-        },
+        registration: registration,
+        // TODO Error: Expected user namespace to be a prefix
+        // registration: {
+        //     ...registration,
+        //     namespaces: {
+        //         // Support multiple users
+        //         users: [{
+        //             regex: '(' + registration.namespaces.users.map((r) => r.regex).join(')|(') + ')',
+        //             exclusive: true,
+        //         }],
+        //         aliases: registration.namespaces.aliases,
+        //         rooms: registration.namespaces.rooms,
+        //     }
+        // },
         storage: storage,
     });
 }

@@ -27,11 +27,11 @@ export class FeedConnection extends BaseConnection implements IConnection {
     static readonly EventTypes = [ FeedConnection.CanonicalEventType ];
     static readonly ServiceCategory = "feed";
 
-    public static createConnectionForState(roomId: string, event: StateEvent<any>, {config, as, storage}: InstantiateConnectionOpts) {
+    public static createConnectionForState(roomId: string, event: StateEvent<any>, {config, botUserId, storage}: InstantiateConnectionOpts) {
         if (!config.feeds?.enabled) {
             throw Error('RSS/Atom feeds are not configured');
         }
-        return new FeedConnection(roomId, event.stateKey, event.content, config.feeds, as, storage);
+        return new FeedConnection(roomId, event.stateKey, event.content, config.feeds, intent, storage);
     }
 
     static async validateUrl(url: string): Promise<void> {
@@ -48,7 +48,7 @@ export class FeedConnection extends BaseConnection implements IConnection {
         }
     }
 
-    static async provisionConnection(roomId: string, _userId: string, data: Record<string, unknown> = {}, {as, config, storage}: ProvisionConnectionOpts) {
+    static async provisionConnection(roomId: string, _userId: string, data: Record<string, unknown> = {}, {as, botUserId, config, storage}: ProvisionConnectionOpts) {
         if (!config.feeds?.enabled) {
             throw new ApiError('RSS/Atom feeds are not configured', ErrCode.DisabledFeature);
         }
@@ -69,7 +69,8 @@ export class FeedConnection extends BaseConnection implements IConnection {
         const state = { url, label: data.label };
 
         const connection = new FeedConnection(roomId, url, state, config.feeds, as, storage);
-        await as.botClient.sendStateEvent(roomId, FeedConnection.CanonicalEventType, url, state);
+        const intent = as.getIntentForUserId(botUserId);
+        await intent.underlyingClient.sendStateEvent(roomId, FeedConnection.CanonicalEventType, url, state);
 
         return {
             connection,
@@ -135,7 +136,7 @@ export class FeedConnection extends BaseConnection implements IConnection {
             message += `: ${entryDetails}`;
         }
 
-        await this.as.botIntent.sendEvent(this.roomId, {
+        await this.intent.sendEvent(this.roomId, {
             msgtype: 'm.notice',
             format: "org.matrix.custom.html",
             formatted_body: md.renderInline(message),
@@ -145,7 +146,7 @@ export class FeedConnection extends BaseConnection implements IConnection {
 
     public async handleFeedError(error: FeedError): Promise<void> {
         if (!this.hasError) {
-            await this.as.botIntent.sendEvent(this.roomId, {
+            await this.intent.sendEvent(this.roomId, {
                 msgtype: 'm.notice',
                 format: 'm.text',
                 body: `Error fetching ${this.feedUrl}: ${error.cause.message}`
@@ -157,7 +158,7 @@ export class FeedConnection extends BaseConnection implements IConnection {
     // needed to ensure that the connection is removable
     public async onRemove(): Promise<void> {
         log.info(`Removing connection ${this.connectionId}`);
-        await this.as.botClient.sendStateEvent(this.roomId, FeedConnection.CanonicalEventType, this.feedUrl, {});
+        await this.intent.underlyingClient.sendStateEvent(this.roomId, FeedConnection.CanonicalEventType, this.feedUrl, {});
     }
 
     toString(): string {

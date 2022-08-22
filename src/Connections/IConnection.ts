@@ -1,7 +1,7 @@
 import { MatrixEvent, MatrixMessageContent } from "../MatrixEvent";
 import { IssuesOpenedEvent, IssuesEditedEvent } from "@octokit/webhooks-types";
 import { GetConnectionsResponseItem } from "../provisioning/api";
-import { Appservice, IRichReplyMetadata, StateEvent } from "matrix-bot-sdk";
+import {Appservice, Intent, IRichReplyMetadata, StateEvent} from "matrix-bot-sdk";
 import { BridgeConfig, BridgePermissionLevel } from "../Config/Config";
 import { UserTokenStore } from "../UserTokenStore";
 import { CommentProcessor } from "../CommentProcessor";
@@ -18,6 +18,11 @@ export interface IConnectionState {
 }
 
 export interface IConnection {
+    /**
+     * The user ID of the bot this connection is associated with. (Or undefined for the bridge bot)
+     */
+    botUserId?: string;
+
     /**
      * The roomId that this connection serves.
      */
@@ -91,6 +96,7 @@ export const ConnectionDeclarations: Array<ConnectionDeclaration> = [];
 
 export interface InstantiateConnectionOpts {
     as: Appservice,
+    botUserId: string,
     config: BridgeConfig,
     tokenStore: UserTokenStore,
     commentProcessor: CommentProcessor,

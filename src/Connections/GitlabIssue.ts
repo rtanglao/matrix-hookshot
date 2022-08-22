@@ -63,10 +63,18 @@ export class GitLabIssueConnection extends BaseConnection implements IConnection
         );
     }
 
-    public static async createRoomForIssue(instanceName: string, instance: GitLabInstance,
-        issue: GetIssueResponse, projects: string[], as: Appservice,
-        tokenStore: UserTokenStore, commentProcessor: CommentProcessor, 
-        messageSender: MessageSenderClient, config: BridgeConfigGitLab) {
+    public static async createRoomForIssue(
+        botUserId: string,
+        as: Appservice,
+        instanceName: string,
+        instance: GitLabInstance,
+        issue: GetIssueResponse,
+        projects: string[],
+        tokenStore: UserTokenStore,
+        commentProcessor: CommentProcessor,
+        messageSender: MessageSenderClient,
+        config: BridgeConfigGitLab,
+    ) {
         const state: GitLabIssueConnectionState = {
             projects,
             state: issue.state,
@@ -91,7 +99,7 @@ export class GitLabIssueConnection extends BaseConnection implements IConnection
             ],
         });
 
-        return new GitLabIssueConnection(roomId, as, state, issue.web_url, tokenStore, commentProcessor, messageSender, instance, config);
+        return new GitLabIssueConnection(botUserId, roomId, as, state, issue.web_url, tokenStore, commentProcessor, messageSender, instance, config);
     }
 
     public get projectPath() {
@@ -102,7 +110,9 @@ export class GitLabIssueConnection extends BaseConnection implements IConnection
         return this.instance.url;
     }
 
-    constructor(roomId: string,
+    constructor(
+        readonly botUserId: string,
+        roomId: string,
         private readonly as: Appservice,
         private state: GitLabIssueConnectionState,
         stateKey: string,
@@ -110,10 +120,11 @@ export class GitLabIssueConnection extends BaseConnection implements IConnection
         private commentProcessor: CommentProcessor,
         private messageClient: MessageSenderClient,
         private instance: GitLabInstance,
-        private config: BridgeConfigGitLab) {
-            super(roomId, stateKey, GitLabIssueConnection.CanonicalEventType);
-        }
-    
+        private config: BridgeConfigGitLab,
+    ) {
+        super(roomId, stateKey, GitLabIssueConnection.CanonicalEventType);
+    }
+
     public isInterestedInStateEvent(eventType: string, stateKey: string) {
         return GitLabIssueConnection.EventTypes.includes(eventType) && this.stateKey === stateKey;
     }

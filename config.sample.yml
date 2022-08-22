@@ -101,6 +101,14 @@ bot:
   #
   displayname: GitHub Bot
   avatar: mxc://half-shot.uk/2876e89ccade4cb615e210c458e2a7a6883fe17d
+serviceBots:
+  # (Optional) Define additional bot users for specific services
+  #
+  - services:
+      - jira
+    localpart: jira
+    displayname: Jira
+    avatar: mxc://half-shot.uk/2877e89ccade4cb615e210c458e2a7a6883fe17d
 metrics:
   # (Optional) Prometheus metrics support
   #

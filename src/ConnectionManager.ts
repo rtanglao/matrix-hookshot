@@ -4,7 +4,7 @@
  * Manages connections between Matrix rooms and the remote side.
  */
 
-import { Appservice, StateEvent } from "matrix-bot-sdk";
+import {Appservice, Intent, StateEvent} from "matrix-bot-sdk";
 import { CommentProcessor } from "./CommentProcessor";
 import { BridgeConfig, BridgePermissionLevel, GitLabInstance } from "./Config/Config";
 import { ConnectionDeclarations, GenericHookConnection, GitHubDiscussionConnection, GitHubDiscussionSpace, GitHubIssueConnection, GitHubProjectConnection, GitHubRepoConnection, GitHubUserSpace, GitLabIssueConnection, GitLabRepoConnection, IConnection, JiraProjectConnection } from "./Connections";
@@ -69,7 +69,7 @@ export class ConnectionManager extends EventEmitter {
      * @param data The data corresponding to the connection state. This will be validated.
      * @returns The resulting connection.
      */
-    public async provisionConnection(roomId: string, userId: string, type: string, data: Record<string, unknown>): Promise<IConnection> {
+    public async provisionConnection(botUserId: string, roomId: string, userId: string, type: string, data: Record<string, unknown>): Promise<IConnection> {
         log.info(`Looking to provision connection for ${roomId} ${type} for ${userId} with data ${JSON.stringify(data)}`);
         const connectionType = ConnectionDeclarations.find(c => c.EventTypes.includes(type));
         if (connectionType?.provisionConnection) {
@@ -78,6 +78,7 @@ export class ConnectionManager extends EventEmitter {
             }
             const { connection } = await connectionType.provisionConnection(roomId, userId, data, {
                 as: this.as,
+                botUserId,
                 config: this.config,
                 tokenStore: this.tokenStore,
                 commentProcessor: this.commentProcessor,
@@ -92,8 +93,8 @@ export class ConnectionManager extends EventEmitter {
         throw new ApiError(`Connection type not known`);
     }
 
-    private assertStateAllowed(state: StateEvent<any>, serviceType: string) {
-        if (state.sender === this.as.botUserId) {
+    private assertStateAllowed(botUserId: string, state: StateEvent<any>, serviceType: string) {
+        if (state.sender === botUserId) {
             return;
         }
         if (!this.config.checkPermission(state.sender, serviceType, BridgePermissionLevel.manageConnections)) {
@@ -101,7 +102,7 @@ export class ConnectionManager extends EventEmitter {
         }
     }
 
-    public async createConnectionForState(roomId: string, state: StateEvent<any>) {
+    public async createConnectionForState(botUserId: string, roomId: string, state: StateEvent<any>) {
         // Empty object == redacted
         if (state.content.disabled === true || Object.keys(state.content).length === 0) {
             log.debug(`${roomId} has disabled state for ${state.type}`);
@@ -111,9 +112,10 @@ export class ConnectionManager extends EventEmitter {
         if (!connectionType) {
             return;
         }
-        this.assertStateAllowed(state, connectionType.ServiceCategory);
+        this.assertStateAllowed(botUserId, state, connectionType.ServiceCategory);
         return connectionType.createConnectionForState(roomId, state, {
             as: this.as,
+            botUserId,
             config: this.config,
             tokenStore: this.tokenStore,
             commentProcessor: this.commentProcessor,
@@ -123,11 +125,12 @@ export class ConnectionManager extends EventEmitter {
         });
     }
 
-    public async createConnectionsForRoomId(roomId: string) {
-        const state = await this.as.botClient.getRoomState(roomId);
+    public async createConnectionsForRoomId(botUserId: string, roomId: string) {
+        const intent = this.as.getIntentForUserId(botUserId);
+        const state = await intent.underlyingClient.getRoomState(roomId);
         for (const event of state) {
             try {
-                const conn = await this.createConnectionForState(roomId, new StateEvent(event));
+                const conn = await this.createConnectionForState(botUserId, roomId, new StateEvent(event));
                 if (conn) {
                     log.debug(`Room ${roomId} is connected to: ${conn}`);
                     this.push(conn);
@@ -210,7 +213,7 @@ export class ConnectionManager extends EventEmitter {
     }
 
     public getConnectionsForJiraProject(project: JiraProject, eventName: string): JiraProjectConnection[] {
-        return this.connections.filter((c) => 
+        return this.connections.filter((c) =>
             (c instanceof JiraProjectConnection &&
                 c.interestedInProject(project) &&
                 c.isInterestedInHookEvent(eventName))) as JiraProjectConnection[];
@@ -227,7 +230,7 @@ export class ConnectionManager extends EventEmitter {
     public getConnectionsForFeedUrl(url: string): FeedConnection[] {
         return this.connections.filter(c => c instanceof FeedConnection && c.feedUrl === url) as FeedConnection[];
     }
-    
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public getAllConnectionsOfType<T extends IConnection>(typeT: new (...params : any[]) => T): T[] {
         return this.connections.filter((c) => (c instanceof typeT)) as T[];
@@ -270,27 +273,26 @@ export class ConnectionManager extends EventEmitter {
     /**
      * Removes connections for a room from memory. This does NOT remove the state
      * event from the room.
-     * @param roomId 
+     * @param roomId
      */
-    public async removeConnectionsForRoom(roomId: string) {
-        log.info(`Removing all connections from ${roomId}`);
-        this.connections = this.connections.filter((c) => c.roomId !== roomId);
+    public async removeConnectionsForRoom(botUserId: string, roomId: string) {
+        log.info(`Removing all connections for ${botUserId} from ${roomId}`);
+        this.connections = this.connections.filter((c) => !(c.roomId === roomId && c.botUserId === botUserId));
         Metrics.connections.set(this.connections.length);
     }
 
-    public registerProvisioningConnection(connType: {getProvisionerDetails: (botUserId: string) => GetConnectionTypeResponseItem}) {
-        const details = connType.getProvisionerDetails(this.as.botUserId);
+    public registerProvisioningConnection(botUserId: string, connType: {getProvisionerDetails: (botUserId: string) => GetConnectionTypeResponseItem}) {
+        const details = connType.getProvisionerDetails(botUserId);
         if (this.enabledForProvisioning[details.type]) {
             throw Error(`Type "${details.type}" already registered for provisioning`);
         }
         this.enabledForProvisioning[details.type] = details;
     }
 
-
     /**
      * Get a list of possible targets for a given connection type when provisioning
-     * @param userId 
-     * @param type 
+     * @param userId
+     * @param type
      */
     async getConnectionTargets(userId: string, type: string, filters: Record<string, unknown> = {}): Promise<unknown[]> {
         switch (type) {

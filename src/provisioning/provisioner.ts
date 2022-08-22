@@ -135,6 +135,7 @@ export class Provisioner {
             if (!req.body || typeof req.body !== "object") {
                 throw new ApiError("A JSON body must be provided.", ErrCode.BadValue);
             }
+            // TODO botUserId in params?
             const connection = await this.connMan.provisionConnection(req.params.roomId, req.query.userId, req.params.type, req.body);
             if (!connection.getProvisionerDetails) {
                 throw new Error('Connection supported provisioning but not getProvisionerDetails.');

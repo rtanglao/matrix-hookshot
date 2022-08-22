@@ -40,14 +40,16 @@ export class AdminRoom extends AdminRoomCommandHandler {
     protected pendingOAuthState: string|null = null;
     public readonly notifFilter: NotifFilter;
 
-    constructor(roomId: string,
-                data: AdminAccountData,
-                notifContent: NotificationFilterStateContent,
-                botIntent: Intent,
-                tokenStore: UserTokenStore,
-                config: BridgeConfig,
-                private connectionManager: ConnectionManager,
-               ) {
+    constructor(
+        botUserId: string,
+        roomId: string,
+        data: AdminAccountData,
+        notifContent: NotificationFilterStateContent,
+        botIntent: Intent,
+        tokenStore: UserTokenStore,
+        config: BridgeConfig,
+        private connectionManager: ConnectionManager,
+    ) {
         super(botIntent, roomId, tokenStore, config, data);
         this.notifFilter = new NotifFilter(notifContent);
     }
@@ -505,7 +507,7 @@ export class AdminRoom extends AdminRoomCommandHandler {
         if (!result.handled) {
             return this.sendNotice("Command not understood.");
         }
-        
+
         if ("humanError" in result) {
             return this.sendNotice(`Failed to handle command: ${result.humanError}`);
         } else if ("error" in result) {
@@ -538,7 +540,7 @@ export class AdminRoom extends AdminRoomCommandHandler {
                 log.warn(`Failed to get user identity: ${ex}`);
             }
         }
-        
+
         return {
             title: "Admin Room",
             github,

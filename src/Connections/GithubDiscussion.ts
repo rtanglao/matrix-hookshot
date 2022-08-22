@@ -1,5 +1,5 @@
 import { Connection, IConnection, InstantiateConnectionOpts } from "./IConnection";
-import { Appservice, StateEvent } from "matrix-bot-sdk";
+import {Appservice, Intent, StateEvent} from "matrix-bot-sdk";
 import { UserTokenStore } from "../UserTokenStore";
 import { CommentProcessor } from "../CommentProcessor";
 import { MessageSenderClient } from "../MatrixSender";
@@ -41,22 +41,39 @@ export class GitHubDiscussionConnection extends BaseConnection implements IConne
     static readonly QueryRoomRegex = /#github_disc_(.+)_(.+)_(\d+):.*/;
     static readonly ServiceCategory = "github";
 
-    public static createConnectionForState(roomId: string, event: StateEvent<any>, {
-        github, config, as, tokenStore, commentProcessor, messageClient}: InstantiateConnectionOpts) {
+    public static createConnectionForState(
+        roomId: string,
+        event: StateEvent<any>,
+        { github, config, as, intent, tokenStore, commentProcessor, messageClient }: InstantiateConnectionOpts,
+    ) {
         if (!github || !config.github) {
             throw Error('GitHub is not configured');
         }
         return new GitHubDiscussionConnection(
-            roomId, as, event.content, event.stateKey, tokenStore, commentProcessor,
-            messageClient, config.github,
+            as,
+            intent,
+            roomId,
+            event.content,
+            event.stateKey,
+            tokenStore,
+            commentProcessor,
+            messageClient,
+            config.github,
         );
     }
 
     readonly sentEvents = new Set<string>(); //TODO: Set some reasonable limits
 
     public static async createDiscussionRoom(
-        as: Appservice, userId: string|null, owner: string, repo: string, discussion: Discussion,
-        tokenStore: UserTokenStore, commentProcessor: CommentProcessor, messageClient: MessageSenderClient,
+        as: Appservice,
+        intent: Intent,
+        userId: string|null,
+        owner: string,
+        repo: string,
+        discussion: Discussion,
+        tokenStore: UserTokenStore,
+        commentProcessor: CommentProcessor,
+        messageClient: MessageSenderClient,
         config: BridgeConfigGitHub,
     ) {
         const commentIntent = await getIntentForUser({
@@ -93,20 +110,24 @@ export class GitHubDiscussionConnection extends BaseConnection implements IConne
             formatted_body: md.render(discussion.body),
             format: 'org.matrix.custom.html',
         });
-        await as.botIntent.ensureJoined(roomId);
-        return new GitHubDiscussionConnection(roomId, as, state, '', tokenStore, commentProcessor, messageClient, config);
+        // TODO
+        await intent.ensureJoined(roomId);
+        return new GitHubDiscussionConnection(as, intent, roomId, state, '', tokenStore, commentProcessor, messageClient, config);
     }
 
-    constructor(roomId: string,
+    constructor(
         private readonly as: Appservice,
+        private readonly intent: Intent,
+        roomId: string,
         private readonly state: GitHubDiscussionConnectionState,
         stateKey: string,
         private readonly tokenStore: UserTokenStore,
         private readonly commentProcessor: CommentProcessor,
         private readonly messageClient: MessageSenderClient,
-        private readonly config: BridgeConfigGitHub) {
-            super(roomId, stateKey, GitHubDiscussionConnection.CanonicalEventType);
-        }
+        private readonly config: BridgeConfigGitHub,
+    ) {
+        super(roomId, stateKey, GitHubDiscussionConnection.CanonicalEventType);
+    }
 
     public isInterestedInStateEvent(eventType: string, stateKey: string) {
         return GitHubDiscussionConnection.EventTypes.includes(eventType) && this.stateKey === stateKey;
@@ -116,7 +137,7 @@ export class GitHubDiscussionConnection extends BaseConnection implements IConne
         const octokit = await this.tokenStore.getOctokitForUser(ev.sender);
         if (octokit === null) {
             // TODO: Use Reply - Also mention user.
-            await this.as.botClient.sendNotice(this.roomId, `${ev.sender}: Cannot send comment, you are not logged into GitHub`);
+            await this.intent.underlyingClient.sendNotice(this.roomId, `${ev.sender}: Cannot send comment, you are not logged into GitHub`);
             return true;
         }
         const qlClient = new GithubGraphQLClient(octokit);
@@ -160,11 +181,11 @@ export class GitHubDiscussionConnection extends BaseConnection implements IConne
         log.info(`Removing ${this.toString()} for ${this.roomId}`);
         // Do a sanity check that the event exists.
         try {
-            await this.as.botClient.getRoomStateEvent(this.roomId, GitHubDiscussionConnection.CanonicalEventType, this.stateKey);
-            await this.as.botClient.sendStateEvent(this.roomId, GitHubDiscussionConnection.CanonicalEventType, this.stateKey, { disabled: true });
+            await this.intent.underlyingClient.getRoomStateEvent(this.roomId, GitHubDiscussionConnection.CanonicalEventType, this.stateKey);
+            await this.intent.underlyingClient.sendStateEvent(this.roomId, GitHubDiscussionConnection.CanonicalEventType, this.stateKey, { disabled: true });
         } catch (ex) {
-            await this.as.botClient.getRoomStateEvent(this.roomId, GitHubDiscussionConnection.LegacyCanonicalEventType, this.stateKey);
-            await this.as.botClient.sendStateEvent(this.roomId, GitHubDiscussionConnection.LegacyCanonicalEventType, this.stateKey, { disabled: true });
+            await this.intent.underlyingClient.getRoomStateEvent(this.roomId, GitHubDiscussionConnection.LegacyCanonicalEventType, this.stateKey);
+            await this.intent.underlyingClient.sendStateEvent(this.roomId, GitHubDiscussionConnection.LegacyCanonicalEventType, this.stateKey, { disabled: true });
         }
     }
 }
