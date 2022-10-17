@@ -191,8 +191,7 @@ export class GitLabRepoConnection extends CommandConnection<GitLabRepoConnection
         let permissionLevel;
         let project;
         try {
-            project = await client.projects.get(validData.path);
-            permissionLevel = Math.max(project.permissions.group_access?.access_level || 0, project.permissions.project_access?.access_level || 0) as AccessLevel;
+            permissionLevel = await client.projects.getMyAccessLevel(validData.path);
         } catch (ex) {
             throw new ApiError("Could not determine if the user has access to this project, does the project exist?", ErrCode.ForbiddenUser);
         }
